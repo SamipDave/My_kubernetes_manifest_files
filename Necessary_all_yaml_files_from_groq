@@ -1,0 +1,158 @@
+Kubernetes manifests are YAML or JSON files that define the desired state of a Kubernetes resource, 
+such as a deployment, service, pod, or persistent volume. There are many types of manifests, and it's challenging to provide all of them.
+
+1)   Deployment: defines a deployment, which manages a set of replicas of a pod.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: example-deployment
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: example
+  template:
+    metadata:
+      labels:
+        app: example
+    spec:
+      containers:
+      - name: example
+        image: example/image
+        ports:
+        - containerPort: 80
+
+2) Service: defines a service, which provides a network identity and load balancing for accessing a pod.
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: example-service
+spec:
+  selector:
+    app: example
+  ports:
+  - name: http
+    port: 80
+    targetPort: 80
+  type: LoadBalancer
+
+3) Pod: defines a pod, which is the basic execution unit in Kubernetes.
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: example-pod
+spec:
+  containers:
+  - name: example
+    image: example/image
+    ports:
+    - containerPort: 80
+
+4) Persistent Volume Claim (PVC): defines a claim for a persistent volume.
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: example-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+5) Persistent Volume (PV): defines a persistent volume.
+
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: example-pv
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  local:
+    path: /data/example
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values:
+          - example-node
+
+6) ConfigMap: defines a configuration map.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: example-configmap
+data:
+  example.key: example.value
+
+7) Secret: defines a secret.
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: example-secret
+type: Opaque
+data:
+  example.key: <base64 encoded value>
+
+
+8) Ingress: defines an ingress resource.
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: example-ingress
+spec:
+  rules:
+  - host: example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: example-service
+            port:
+              number: 80
+
+9) Job: defines a job.
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: example-job
+spec:
+  template:
+    spec:
+      containers:
+      - name: example
+        image: example/image
+        command: ["example", "command"]
+      restartPolicy: OnFailure
+
+10) CronJob: defines a cron job.
+
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: example-cronjob
+spec:
+  schedule: "*/5 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: example
+            image: example/image
+            command: ["example", "command"]
+          restartPolicy: OnFailure
