@@ -1,0 +1,138 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: full-demo-pod
+  labels:
+    app: demo
+spec:
+  containers:
+    - name: app-container
+      image: nginx:1.25
+      ports:
+        - containerPort: 80
+      resources:
+        requests:
+          memory: "128Mi"
+          cpu: "250m"
+        limits:
+          memory: "256Mi"
+          cpu: "500m"
+      env:
+        - name: ENVIRONMENT
+          value: "production"
+      envFrom:
+        - configMapRef:
+            name: app-config
+        - secretRef:
+            name: app-secret
+      volumeMounts:
+        - name: shared-data
+          mountPath: /usr/share/nginx/html
+          readOnly: false
+      readinessProbe:
+        httpGet:
+          path: /
+          port: 80
+        initialDelaySeconds: 5
+        periodSeconds: 10
+      livenessProbe:
+        httpGet:
+          path: /
+          port: 80
+        initialDelaySeconds: 15
+        periodSeconds: 20
+      lifecycle:
+        postStart:
+          exec:
+            command: ["/bin/sh", "-c", "echo PostStart Hook > /usr/share/nginx/html/index.html"]
+        preStop:
+          exec:
+            command: ["/bin/sh", "-c", "echo PreStop Hook"]
+  initContainers:
+    - name: init-myservice
+      image: busybox
+      command: ['sh', '-c', 'echo initializing...; sleep 5']
+      volumeMounts:
+        - name: shared-data
+          mountPath: /data
+  volumes:
+    - name: shared-data
+      emptyDir: {}
+    - name: config-vol
+      configMap:
+        name: app-config
+    - name: secret-vol
+      secret:
+        secretName: app-secret
+    - name: persistent-vol
+      persistentVolumeClaim:
+        claimName: my-pvc
+  restartPolicy: Always
+  nodeSelector:
+    disktype: ssd
+  tolerations:
+    - key: "dedicated"
+      operator: "Equal"
+      value: "critical"
+      effect: "NoSchedule"
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: kubernetes.io/e2e-az-name
+                operator: In
+                values:
+                  - e2e-az1
+                  - e2e-az2
+  hostNetwork: false
+  dnsPolicy: ClusterFirst
+  securityContext:
+    runAsUser: 1000
+    runAsGroup: 3000
+    fsGroup: 2000
+    allowPrivilegeEscalation: false
+  imagePullSecrets:
+    - name: myregistrykey
+  terminationGracePeriodSeconds: 30
+
+#################################################################
+✅ Explanation of All Fields & Subtypes
+
+| Field                           | Sub-Options / Explanation                                                                                                                                                                                                                                            |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `containers`                    | Main app containers. Must define `name`, `image`. Can include ports, env, probes, resources, etc.                                                                                                                                                                    |
+| `initContainers`                | Run before main containers. Often used for setup tasks. Same structure as normal containers.                                                                                                                                                                         |
+| `volumes`                       | <ul><li>`emptyDir`: ephemeral shared storage</li><li>`configMap`: inject config files</li><li>`secret`: inject secrets securely</li><li>`persistentVolumeClaim`: attach long-term storage</li></ul>                                                                  |
+| `volumeMounts.readOnly`         | Set to `true` or `false` depending on access needed.                                                                                                                                                                                                                 |
+| `restartPolicy`                 | <ul><li>`Always` (default): Restart always</li><li>`OnFailure`: Only restart on failure</li><li>`Never`: Do not restart</li></ul>                                                                                                                                    |
+| `nodeSelector`                  | Match key-value pair for node selection (e.g., `disktype: ssd`).                                                                                                                                                                                                     |
+| `tolerations`                   | Allow pods to be scheduled on tainted nodes. Includes `key`, `operator`, `value`, `effect` (e.g., `NoSchedule`, `NoExecute`).                                                                                                                                        |
+| `affinity`                      | Advanced scheduling. Here: `nodeAffinity` with `requiredDuringSchedulingIgnoredDuringExecution` and `matchExpressions`.                                                                                                                                              |
+| `hostNetwork`                   | If `true`, Pod shares node’s network namespace. Usually `false` unless using host ports.                                                                                                                                                                             |
+| `dnsPolicy`                     | <ul><li>`ClusterFirst`: use cluster DNS (default)</li><li>`Default`: use node DNS</li><li>`None`: with `dnsConfig`</li></ul>                                                                                                                                         |
+| `securityContext`               | Set permissions and privilege controls:<ul><li>`runAsUser`, `runAsGroup`: container runs as specific UID/GID</li><li>`fsGroup`: sets group ownership for mounted volumes</li><li>`allowPrivilegeEscalation`: blocks container from gaining more privileges</li></ul> |
+| `lifecycle`                     | <ul><li>`postStart`: command after container starts</li><li>`preStop`: command before container stops</li></ul>                                                                                                                                                      |
+| `readinessProbe`                | Used to check when app is ready. Commonly uses HTTP GET, TCP, or command (`exec`).                                                                                                                                                                                   |
+| `livenessProbe`                 | Checks if app is alive. Restarts container if it fails.                                                                                                                                                                                                              |
+| `resources`                     | <ul><li>`requests`: minimum resources guaranteed</li><li>`limits`: max resources a container can use</li></ul>                                                                                                                                                       |
+| `env`                           | Key-value environment variables (static).                                                                                                                                                                                                                            |
+| `envFrom`                       | Inject from ConfigMaps or Secrets (dynamic).                                                                                                                                                                                                                         |
+| `imagePullSecrets`              | Used when pulling images from private registries.                                                                                                                                                                                                                    |
+| `terminationGracePeriodSeconds` | Time K8s waits before forcibly killing the container (default: 30s).                                                                                                                                                                                                 |
+
+
+
+######################################################################
+✅ Bonus: Persistent Volume Subtypes for accessModes
+
+In PersistentVolumeClaim (not directly inside Pod):
+
+| Access Mode        | Meaning                                           |
+| ------------------ | ------------------------------------------------- |
+| `ReadWriteOnce`    | Mounted as read-write by a single node            |
+| `ReadOnlyMany`     | Mounted as read-only by many nodes                |
+| `ReadWriteMany`    | Mounted as read-write by many nodes               |
+| `ReadWriteOncePod` | Mounted as read-write by a single pod (K8s 1.22+) |
+
+
